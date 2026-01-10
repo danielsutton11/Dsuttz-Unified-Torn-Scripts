@@ -661,3 +661,8 @@ const APHTABOModule = {
         console.log('[Attack Page Hosp Timer] Initialized successfully');
     }
 };
+
+// Export to window for DSS Manager
+if (typeof window !== 'undefined') {
+    window.APHTABOModule = APHTABOModule;
+}

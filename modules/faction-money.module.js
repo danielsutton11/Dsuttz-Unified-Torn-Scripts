@@ -222,3 +222,8 @@ const FactionMoneyModule = {
         console.log('[Faction Money] Initialized successfully');
     }
 };
+
+// Export to window for DSS Manager
+if (typeof window !== 'undefined') {
+    window.FactionMoneyModule = FactionMoneyModule;
+}

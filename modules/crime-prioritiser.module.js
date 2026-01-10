@@ -113,253 +113,258 @@ Crane Reaction,Muscle #1,4,10
 Crane Reaction,Muscle #2,5,8
 Crane Reaction,Engineer,6,8`;
 
-                const crimePriorities = {};
+        const crimePriorities = {};
 
-                function parseCSV() {
-                    const lines = csvData.trim().split('\n');
-                    for (let i = 1; i < lines.length; i++) {
-                        const parts = lines[i].split(',');
-                        if (parts.length < 4) continue;
+        function parseCSV() {
+            const lines = csvData.trim().split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length < 4) continue;
 
-                        const crimeName = parts[0].trim();
-                        const roleName = parts[1].trim();
-                        const priority = parseInt(parts[2].trim());
-                        const weight = parseInt(parts[3].trim());
+                const crimeName = parts[0].trim();
+                const roleName = parts[1].trim();
+                const priority = parseInt(parts[2].trim());
+                const weight = parseInt(parts[3].trim());
 
-                        if (!crimePriorities[crimeName]) {
-                            crimePriorities[crimeName] = {};
+                if (!crimePriorities[crimeName]) {
+                    crimePriorities[crimeName] = {};
+                }
+
+                crimePriorities[crimeName][roleName] = {
+                    priority: priority,
+                    weight: weight
+                };
+            }
+        }
+
+        function normalizeRoleName(name) {
+            return name.replace(/\s*#\d+$/, '').trim();
+        }
+
+        function getRolePriority(crimeName, roleName) {
+            if (crimePriorities[crimeName]) {
+                return findRoleInCrime(crimePriorities[crimeName], roleName);
+            }
+
+            const lowerCrimeName = crimeName.toLowerCase();
+            for (const crime in crimePriorities) {
+                if (crime.toLowerCase() === lowerCrimeName) {
+                    return findRoleInCrime(crimePriorities[crime], roleName);
+                }
+            }
+
+            return null;
+        }
+
+        function findRoleInCrime(crimeData, roleName) {
+            if (crimeData[roleName]) {
+                return crimeData[roleName];
+            }
+
+            const normalizedRole = normalizeRoleName(roleName);
+            for (const role in crimeData) {
+                if (normalizeRoleName(role) === normalizedRole) {
+                    return crimeData[role];
+                }
+            }
+
+            return null;
+        }
+
+        function getPriorityColor(normalizedPriority) {
+            if (normalizedPriority <= 0.5) {
+                const t = normalizedPriority * 2;
+                const r = 139 + (255 - 139) * t;
+                const g = 0 + (165 - 0) * t;
+                const b = 0;
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${b})`;
+            } else {
+                const t = (normalizedPriority - 0.5) * 2;
+                const r = 255 + (144 - 255) * t;
+                const g = 165 + (238 - 165) * t;
+                const b = 0 + (144 - 0) * t;
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            }
+        }
+
+        function addTooltipStyles() {
+            if (document.getElementById('crime-prioritiser-styles')) return;
+            
+            const style = document.createElement('style');
+            style.id = 'crime-prioritiser-styles';
+            style.textContent = `
+                .crime-priority-tooltip {
+                    position: relative;
+                }
+
+                .crime-priority-tooltip::after {
+                    content: attr(data-priority);
+                    position: absolute;
+                    bottom: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background-color: rgba(0, 0, 0, 0.9);
+                    color: #fff;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    white-space: nowrap;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.3s;
+                    margin-bottom: 5px;
+                    z-index: 1000;
+                }
+
+                .crime-priority-tooltip:hover::after {
+                    opacity: 1;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        function processCrimes(retryCount = 0) {
+            if (!window.location.hash.includes('tab=crimes')) {
+                return;
+            }
+
+            const crimeContainers = document.querySelectorAll('.contentLayer___IYFdz .scenario___cQfFm');
+
+            if (crimeContainers.length === 0 && retryCount < 5) {
+                setTimeout(() => processCrimes(retryCount + 1), 300);
+                return;
+            }
+
+            crimeContainers.forEach(container => {
+                const crimeNameElement = container.querySelector('.panelTitle___aoGuV');
+                if (!crimeNameElement) return;
+
+                const crimeName = crimeNameElement.textContent.trim();
+
+                let rolesWrapper = container.parentElement.querySelector('.wrapper___g3mPt');
+
+                if (!rolesWrapper) {
+                    const parent = container.parentElement;
+                    const siblings = parent.querySelectorAll('[class*="wrapper"]');
+                    for (const sibling of siblings) {
+                        if (sibling.className.includes('g3mPt') || sibling.querySelector('[class*="Lpz_D"]')) {
+                            rolesWrapper = sibling;
+                            break;
                         }
-
-                        crimePriorities[crimeName][roleName] = {
-                            priority: priority,
-                            weight: weight
-                        };
                     }
                 }
 
-                function normalizeRoleName(name) {
-                    return name.replace(/\s*#\d+$/, '').trim();
-                }
+                if (!rolesWrapper) return;
 
-                function getRolePriority(crimeName, roleName) {
-                    if (crimePriorities[crimeName]) {
-                        return findRoleInCrime(crimePriorities[crimeName], roleName);
+                const roleSlots = Array.from(rolesWrapper.querySelectorAll('.wrapper___Lpz_D'));
+
+                const roleData = roleSlots.map(slot => {
+                    const titleElement = slot.querySelector('.title___UqFNy');
+                    if (!titleElement) return null;
+
+                    const roleName = titleElement.textContent.trim();
+                    const priorityInfo = getRolePriority(crimeName, roleName);
+
+                    return {
+                        element: slot,
+                        roleName: roleName,
+                        priority: priorityInfo ? priorityInfo.priority : 999,
+                        weight: priorityInfo ? priorityInfo.weight : 0
+                    };
+                }).filter(item => item !== null);
+
+                roleData.sort((a, b) => a.priority - b.priority);
+
+                const maxPriority = Math.max(...roleData.map(r => r.priority));
+
+                roleData.forEach(item => {
+                    rolesWrapper.appendChild(item.element);
+
+                    const joinButton = item.element.querySelector('.joinButton___Ikoyy, button[type="button"].torn-btn');
+                    if (joinButton && item.weight > 0) {
+                        joinButton.classList.add('crime-priority-tooltip');
+                        joinButton.setAttribute('data-priority', `Priority: ${item.weight}%`);
                     }
 
-                    const lowerCrimeName = crimeName.toLowerCase();
-                    for (const crime in crimePriorities) {
-                        if (crime.toLowerCase() === lowerCrimeName) {
-                            return findRoleInCrime(crimePriorities[crime], roleName);
-                        }
+                    if (item.priority !== 999) {
+                        const normalizedPriority = (item.priority - 1) / (maxPriority - 1);
+                        const color = getPriorityColor(normalizedPriority);
+                        item.element.style.borderLeft = `4px solid ${color}`;
                     }
+                });
+            });
+        }
 
-                    return null;
-                }
+        let processTimeout = null;
+        function debouncedProcess() {
+            if (processTimeout) clearTimeout(processTimeout);
+            processTimeout = setTimeout(() => {
+                processCrimes();
+            }, 100);
+        }
 
-                function findRoleInCrime(crimeData, roleName) {
-                    if (crimeData[roleName]) {
-                        return crimeData[roleName];
-                    }
+        // Initialize
+        parseCSV();
+        addTooltipStyles();
 
-                    const normalizedRole = normalizeRoleName(roleName);
-                    for (const role in crimeData) {
-                        if (normalizeRoleName(role) === normalizedRole) {
-                            return crimeData[role];
-                        }
-                    }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', processCrimes);
+        } else {
+            setTimeout(processCrimes, 500);
+        }
 
-                    return null;
-                }
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('button, a, div, span');
+            if (target) {
+                const textContent = target.textContent || '';
+                const parentText = target.parentElement?.textContent || '';
 
-                function getPriorityColor(normalizedPriority) {
-                    if (normalizedPriority <= 0.5) {
-                        const t = normalizedPriority * 2;
-                        const r = 139 + (255 - 139) * t;
-                        const g = 0 + (165 - 0) * t;
-                        const b = 0;
-                        return `rgb(${Math.round(r)}, ${Math.round(g)}, ${b})`;
-                    } else {
-                        const t = (normalizedPriority - 0.5) * 2;
-                        const r = 255 + (144 - 255) * t;
-                        const g = 165 + (238 - 165) * t;
-                        const b = 0 + (144 - 0) * t;
-                        return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-                    }
-                }
-
-                function addTooltipStyles() {
-                    if (document.getElementById('crime-prioritiser-styles')) return;
-                    
-                    const style = document.createElement('style');
-                    style.id = 'crime-prioritiser-styles';
-                    style.textContent = `
-                        .crime-priority-tooltip {
-                            position: relative;
-                        }
-
-                        .crime-priority-tooltip::after {
-                            content: attr(data-priority);
-                            position: absolute;
-                            bottom: 100%;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            background-color: rgba(0, 0, 0, 0.9);
-                            color: #fff;
-                            padding: 5px 10px;
-                            border-radius: 4px;
-                            font-size: 12px;
-                            white-space: nowrap;
-                            opacity: 0;
-                            pointer-events: none;
-                            transition: opacity 0.3s;
-                            margin-bottom: 5px;
-                            z-index: 1000;
-                        }
-
-                        .crime-priority-tooltip:hover::after {
-                            opacity: 1;
-                        }
-                    `;
-                    document.head.appendChild(style);
-                }
-
-                function processCrimes(retryCount = 0) {
-                    if (!window.location.hash.includes('tab=crimes')) {
-                        return;
-                    }
-
-                    const crimeContainers = document.querySelectorAll('.contentLayer___IYFdz .scenario___cQfFm');
-
-                    if (crimeContainers.length === 0 && retryCount < 5) {
-                        setTimeout(() => processCrimes(retryCount + 1), 300);
-                        return;
-                    }
-
-                    crimeContainers.forEach(container => {
-                        const crimeNameElement = container.querySelector('.panelTitle___aoGuV');
-                        if (!crimeNameElement) return;
-
-                        const crimeName = crimeNameElement.textContent.trim();
-
-                        let rolesWrapper = container.parentElement.querySelector('.wrapper___g3mPt');
-
-                        if (!rolesWrapper) {
-                            const parent = container.parentElement;
-                            const siblings = parent.querySelectorAll('[class*="wrapper"]');
-                            for (const sibling of siblings) {
-                                if (sibling.className.includes('g3mPt') || sibling.querySelector('[class*="Lpz_D"]')) {
-                                    rolesWrapper = sibling;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (!rolesWrapper) return;
-
-                        const roleSlots = Array.from(rolesWrapper.querySelectorAll('.wrapper___Lpz_D'));
-
-                        const roleData = roleSlots.map(slot => {
-                            const titleElement = slot.querySelector('.title___UqFNy');
-                            if (!titleElement) return null;
-
-                            const roleName = titleElement.textContent.trim();
-                            const priorityInfo = getRolePriority(crimeName, roleName);
-
-                            return {
-                                element: slot,
-                                roleName: roleName,
-                                priority: priorityInfo ? priorityInfo.priority : 999,
-                                weight: priorityInfo ? priorityInfo.weight : 0
-                            };
-                        }).filter(item => item !== null);
-
-                        roleData.sort((a, b) => a.priority - b.priority);
-
-                        const maxPriority = Math.max(...roleData.map(r => r.priority));
-
-                        roleData.forEach(item => {
-                            rolesWrapper.appendChild(item.element);
-
-                            const joinButton = item.element.querySelector('.joinButton___Ikoyy, button[type="button"].torn-btn');
-                            if (joinButton && item.weight > 0) {
-                                joinButton.classList.add('crime-priority-tooltip');
-                                joinButton.setAttribute('data-priority', `Priority: ${item.weight}%`);
-                            }
-
-                            if (item.priority !== 999) {
-                                const normalizedPriority = (item.priority - 1) / (maxPriority - 1);
-                                const color = getPriorityColor(normalizedPriority);
-                                item.element.style.borderLeft = `4px solid ${color}`;
-                            }
-                        });
-                    });
-                }
-
-                let processTimeout = null;
-                function debouncedProcess() {
-                    if (processTimeout) clearTimeout(processTimeout);
-                    processTimeout = setTimeout(() => {
-                        processCrimes();
-                    }, 100);
-                }
-
-                // Initialize
-                parseCSV();
-                addTooltipStyles();
-
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', processCrimes);
-                } else {
+                if (textContent.includes('CRIMES') ||
+                    parentText.includes('CRIMES') ||
+                    textContent.includes('Recruiting') ||
+                    textContent.includes('Planning') ||
+                    textContent.includes('Completed')) {
                     setTimeout(processCrimes, 500);
                 }
+            }
+        }, true);
 
-                document.addEventListener('click', (e) => {
-                    const target = e.target.closest('button, a, div, span');
-                    if (target) {
-                        const textContent = target.textContent || '';
-                        const parentText = target.parentElement?.textContent || '';
+        window.addEventListener('hashchange', () => {
+            setTimeout(processCrimes, 500);
+        });
 
-                        if (textContent.includes('CRIMES') ||
-                            parentText.includes('CRIMES') ||
-                            textContent.includes('Recruiting') ||
-                            textContent.includes('Planning') ||
-                            textContent.includes('Completed')) {
-                            setTimeout(processCrimes, 500);
-                        }
-                    }
-                }, true);
+        let lastProcessedContent = '';
+        const observer = new MutationObserver((mutations) => {
+            const crimeContainers = document.querySelectorAll('.contentLayer___IYFdz .scenario___cQfFm');
+            if (crimeContainers.length > 0) {
+                const currentContent = Array.from(crimeContainers).map(c => {
+                    const title = c.querySelector('.panelTitle___aoGuV');
+                    return title ? title.textContent : '';
+                }).join('|');
 
-                window.addEventListener('hashchange', () => {
-                    setTimeout(processCrimes, 500);
-                });
+                if (currentContent && currentContent !== lastProcessedContent) {
+                    lastProcessedContent = currentContent;
+                    debouncedProcess();
+                }
+            }
+        });
 
-                let lastProcessedContent = '';
-                const observer = new MutationObserver((mutations) => {
-                    const crimeContainers = document.querySelectorAll('.contentLayer___IYFdz .scenario___cQfFm');
-                    if (crimeContainers.length > 0) {
-                        const currentContent = Array.from(crimeContainers).map(c => {
-                            const title = c.querySelector('.panelTitle___aoGuV');
-                            return title ? title.textContent : '';
-                        }).join('|');
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
 
-                        if (currentContent && currentContent !== lastProcessedContent) {
-                            lastProcessedContent = currentContent;
-                            debouncedProcess();
-                        }
-                    }
-                });
-
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.shiftKey && e.key === 'P') {
-                        processCrimes();
-                    }
-                });
-                
-                console.log('[Crime Prioritiser] Initialized successfully');
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+                processCrimes();
+            }
+        });
+        
+        console.log('[Crime Prioritiser] Initialized successfully');
     }
 };
+
+// Export to window for DSS Manager
+if (typeof window !== 'undefined') {
+    window.CrimePrioritiserModule = CrimePrioritiserModule;
+}

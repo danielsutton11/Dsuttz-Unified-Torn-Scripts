@@ -363,8 +363,3 @@ Crane Reaction,Engineer,6,8`;
         console.log('[Crime Prioritiser] Initialized successfully');
     }
 };
-
-// Export to window for DSS Manager
-if (typeof window !== 'undefined') {
-    window.CrimePrioritiserModule = CrimePrioritiserModule;
-}

@@ -92,3 +92,8 @@ const CustomBackgroundModule = {
         console.log('[Custom Background] Initialized successfully with URL:', imageUrl);
     }
 };
+
+// Export to window for DSS Manager
+if (typeof window !== 'undefined') {
+    window.CustomBackgroundModule = CustomBackgroundModule;
+}

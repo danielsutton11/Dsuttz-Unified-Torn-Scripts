@@ -1239,3 +1239,8 @@ const CommHelperModule = {
         console.log('[Comm Helper] Initialized successfully');
     }
 };
+
+// Export to window for DSS Manager
+if (typeof window !== 'undefined') {
+    window.CommHelperModule = CommHelperModule;
+}
